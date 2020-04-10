@@ -1,2 +1,4 @@
 eventlet
 imapclient
+#discord
+discord-webhook

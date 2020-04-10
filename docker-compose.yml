@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  monitor:
+    build: .
+    restart: on-failure
+    image: petrleocompel/google-password-reset-monitor
+    container_name: grandpa-pass-monitor
+    environment:
+      - PYTHONUNBUFFERED=0
+      - MAIL_HOST=${MAIL_HOST}
+      - MAIL_LOGIN=${MAIL_LOGIN}
+      - MAIL_PASS=${MAIL_PASS}
+      - WEBHOOK=${WEBHOOK}

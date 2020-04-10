@@ -3,6 +3,12 @@
 #imapclient = eventlet.import_patched('imapclient')
 import imapclient
 from imapclient.exceptions import LoginError
+
+import os
+#import discord
+#from discord.ext import commands
+from discord_webhook import DiscordWebhook, DiscordEmbed
+
 import os.path as path
 import sys
 import traceback
@@ -12,6 +18,8 @@ import configparser
 import email
 from time import sleep
 from datetime import datetime, time
+#description = 'GrandPaPassBot'
+#bot = commands.Bot(command_prefix='!pw', description=description)
 
 # Setup the log handlers to stdout and file.
 log = logging.getLogger('imap_monitor')
@@ -23,23 +31,10 @@ handler_stdout = logging.StreamHandler(sys.stdout)
 handler_stdout.setLevel(logging.DEBUG)
 handler_stdout.setFormatter(formatter)
 log.addHandler(handler_stdout)
-handler_file = RotatingFileHandler(
-    'imap_monitor.log',
-    mode='a',
-    maxBytes=1048576,
-    backupCount=9,
-    encoding='UTF-8',
-    delay=True
-)
-handler_file.setLevel(logging.DEBUG)
-handler_file.setFormatter(formatter)
-log.addHandler(handler_file)
 
 
 # TODO: Support SMTP log handling for CRITICAL errors.
-
-
-def process_email(mail_, download_, log_):
+def process_email(mail_, log_):
     """Email processing to be done here. mail_ is the Mail object passed to this
     function. download_ is the path where attachments may be downloaded to.
     log_ is the logger object.
@@ -56,75 +51,33 @@ def main():
     while True:
         # <--- Start of configuration section
 
-        # Read config file - halt script on failure
-        #try:
-#            open('imap_monitor.ini', 'r+')
-#        except IOError:
-#            log.critical('configuration file is missing')
-#            break
-        config = configparser.ConfigParser()
-        config.read('imap_monitor.ini')
-
         # Retrieve IMAP host - halt script if section 'imap' or value
-        # missing
-        try:
-            host = config.get('imap', 'host')
-        except configparser.NoSectionError:
-            log.critical('no "imap" section in configuration file')
-            break
-        except configparser.NoOptionError:
+        host = os.getenv('MAIL_HOST', None)
+        if host is None:
             log.critical('no IMAP host specified in configuration file')
-            break
+            exit(1)
 
-        # Retrieve IMAP username - halt script if missing
-        try:
-            username = config.get('imap', 'username')
-        except configparser.NoOptionError:
-            log.critical('no IMAP username specified in configuration file')
-            break
+        username = os.getenv('MAIL_LOGIN', None)
+        if username is None:
+            log.critical('no IMAP login specified in configuration file')
+            exit(1)
 
         # Retrieve IMAP password - halt script if missing
-        try:
-            password = config.get('imap', 'password')
-        except configparser.NoOptionError:
+        password = os.getenv('MAIL_PASS', None)
+        if password is None:
             log.critical('no IMAP password specified in configuration file')
-            break
+            exit(1)
 
         # Retrieve IMAP SSL setting - warn if missing, halt if not boolean
-        try:
-            ssl = config.getboolean('imap', 'ssl')
-        except configparser.NoOptionError:
-            # Default SSL setting to False if missing
-            log.warning('no IMAP SSL setting specified in configuration file')
-            ssl = False
-        except ValueError:
-            log.critical('IMAP SSL setting invalid - not boolean')
-            break
-
+        ssl = bool(os.getenv('MAIL_SSL', True))
         # Retrieve IMAP folder to monitor - warn if missing
-        try:
-            folder = config.get('imap', 'folder')
-        except configparser.NoOptionError:
-            # Default folder to monitor to 'INBOX' if missing
-            log.warning('no IMAP folder specified in configuration file')
-            folder = 'INBOX'
+        folder = os.getenv('MAIL_FOLDER', 'INBOX')
 
-        # Retrieve path for downloads - halt if section of value missing
-        try:
-            download = config.get('path', 'download')
-        except configparser.NoSectionError:
-            log.critical('no "path" section in configuration')
-            break
-        except configparser.NoOptionError:
-            # If value is None or specified path not existing, warn and default
-            # to script path
-            log.warn('no download path specified in configuration')
-            download = None
-        finally:
-            download = download if (
-                    download and path.exists(download)
-            ) else path.abspath(__file__)
-        log.info('setting path for email downloads - {0}'.format(download))
+        # Retrieve Webhook url
+        webhook_url = os.getenv('WEBHOOK', None)
+        if webhook_url is None:
+            log.critical('no "discord" section in configuration')
+            exit(1)
 
         while True:
             # <--- Start of IMAP server connection loop
@@ -150,10 +103,25 @@ def main():
             try:
                 result = imap.login(username, password)
                 log.info('login successful - {0}'.format(result))
+                webhook = DiscordWebhook(
+                    url=webhook_url,
+                    content='Grandpa password watch started\n' + str(datetime.now())
+                )
+                webhook.execute()
             except LoginError as e:
                 if "Invalid credentials" in str(e):
                     log.critical("Password was changed")
-                    # TODO do something
+                    webhook = DiscordWebhook(url=webhook_url, content='Grandpa change password')
+                    # create embed object for webhook
+                    embed = DiscordEmbed(
+                        title='Grandpa change password',
+                        description='Gmail password changed',
+                        color=770000
+                    )
+
+                    # add embed object to webhook
+                    webhook.add_embed(embed)
+                    webhook.execute()
                 break
             except Exception:
                 # Halt script when login fails
@@ -197,7 +165,7 @@ def main():
                     continue
                 mail = email.message_from_string(result[each][b'RFC822'].decode("utf-8"))
                 try:
-                    process_email(mail, download, log)
+                    process_email(mail, log)
                     log.info('processing email {0} - {1}'.format(
                         each, mail['subject']
                     ))
@@ -230,7 +198,7 @@ def main():
                             fetch[each]['RFC822']
                         )
                         try:
-                            process_email(mail, download, log)
+                            process_email(mail, log)
                             log.info('processing email {0} - {1}'.format(
                                 each, mail['subject']
                             ))
@@ -252,6 +220,8 @@ def main():
         # End of configuration section --->
         break
     log.info('script stopped ...')
+    webhook = DiscordWebhook(url=webhook_url, content='End password check' + str(datetime.now()))
+    webhook.execute()
 
 
 if __name__ == '__main__':
