@@ -1,3 +1,5 @@
 venv
 imap_monitor.log
 .env
+.idea
+.vscode
