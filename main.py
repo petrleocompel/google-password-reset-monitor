@@ -13,7 +13,7 @@ from time import sleep
 from datetime import datetime, time
 
 log = logging.getLogger('imap_monitor')
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 formatter = logging.Formatter(
     '%(asctime)s | %(name)s | %(levelname)s | %(message)s'
 )
