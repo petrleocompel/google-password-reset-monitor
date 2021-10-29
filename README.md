@@ -19,11 +19,11 @@ Modify:
 - password
 - webhook (Discord compatible)
 
-## FAQ - other problems
+## FAQ - other problems
 ### Not working?
 Sadly - your problem
 
-### Google IMAP enable
+### Google IMAP enable
 *AKA less secure apps* in eyes of Google
 [https://support.google.com/accounts/answer/6010255](https://support.google.com/accounts/answer/6010255)
 
