@@ -144,15 +144,24 @@ class GooglePassMonitor:
                     # TODO: Remove hard-coded IDLE timeout; place in config file
                     # current check = 5 minutes
                     result = imap.idle_check(5 * 60)
-                    if result:
-                        imap.idle_done()
-                        result = imap.search('UNSEEN')
-                        log.debug('{0} new unread messages - {1}'.format(len(result), result))
-                    else:
-                        imap.idle_done()
-                        imap.noop()
-                        log.debug('no new messages seen')
-                    # End of mail monitoring loop --->
+                    try:
+                        if result:
+                            imap.idle_done()
+                            result = imap.search('UNSEEN')
+                            log.debug('{0} new unread messages - {1}'.format(len(result), result))
+                        else:
+                            imap.idle_done()
+                            imap.noop()
+                            log.debug('no new messages seen')
+                        # End of mail monitoring loop --->
+                    except Exception:
+                        # Halt script when login fails
+                        etype, evalue = sys.exc_info()[:2]
+                        estr = traceback.format_exception_only(etype, evalue)
+                        logstr = 'Error in IDLE - '
+                        for each in estr:
+                            logstr += '{0}; '.format(each.strip('\n'))
+                        log.warn(logstr)
                     continue
                 # End of IMAP server connection loop --->
             # End of configuration section --->
