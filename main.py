@@ -140,7 +140,18 @@ class GooglePassMonitor:
                     # to refresh. Should errors occur in this loop (due to loss of
                     # connection), return control to IMAP server connection loop to
                     # attempt restablishing connection instead of halting script.
-                    imap.idle()
+                    try:
+                        imap.idle()
+                    except Exception:
+                        # Halt script when login fails
+                        etype, evalue = sys.exc_info()[:2]
+                        estr = traceback.format_exception_only(etype, evalue)
+                        logstr = 'Error in IMAP-IDLE - '
+                        for each in estr:
+                            logstr += '{0}; '.format(each.strip('\n'))
+                        log.warn(logstr)
+                        continue
+                    
                     # TODO: Remove hard-coded IDLE timeout; place in config file
                     # current check = 5 minutes
                     result = imap.idle_check(5 * 60)
